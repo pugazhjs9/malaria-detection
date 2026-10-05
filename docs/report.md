@@ -8,6 +8,13 @@ Our goal is an automated deep-learning system that classifies single red-blood-c
 
 Phase 1 surveyed 11 published studies. In Phase 2 (this report) we reproduce the strongest-documented one, Marques et al. (2022), as our baseline, then test whether its accuracy holds up once slide-level leakage is removed.
 
+**Why Marques et al. (2022).** Of the 11 studies, we selected this one because it best fits the reproducibility criteria for baseline formation:
+
+- **Most fully specified recipe.** It states the backbone (EfficientNet-B0, ImageNet-pretrained), optimiser (Adam, lr 1e-4), scheduler (ReduceLROnPlateau), 10-fold cross-validation and fold-averaging ensemble — enough detail to rebuild it, which is why our result lands within ~1 pp.
+- **Public, free-GPU-friendly.** It uses the standard NIH dataset (~350 MB on Kaggle) and a small backbone that trains at 224×224 in minutes per fold on a free Kaggle/Colab GPU.
+- **Clear, comparable metrics.** It reports accuracy, precision, recall, F1 and ROC-AUC with concrete target numbers to reproduce against, and uses the same NIH benchmark as the other 10 surveyed studies.
+- **An improvable assumption.** It splits at the image level, so cells from one patient/slide can fall in both training and test. That potential leakage is exactly what motivates our single-variable hypotheses (H1, H2).
+
 ## 2. Baseline reproduction (Marques et al., 2022)
 
 **Goal.** Rebuild the paper's model on the same data and check we land within about 1 percentage point of its reported results. This becomes our Phase 2 baseline (experiment A0).
@@ -47,6 +54,18 @@ Phase 1 surveyed 11 published studies. In Phase 2 (this report) we reproduce the
 
 **Takeaway.** Both headline accuracies are within 1 pp of the paper, so the reproduction succeeds and A0 is our baseline. Recall is 2 pp lower: on the test set the model missed 44 infected cells and wrongly flagged 23 healthy ones. Training all 10 folds (as the paper did) may close part of this gap.
 
-## 3. Hypothesis results
+## 3. Hypotheses and planned experiments
 
-*To do after the A1–A3 runs.*
+With the baseline (A0) established, we test two single-variable hypotheses in the next milestone. Each experiment changes exactly one thing relative to the experiment it is compared against, so any change in the result is attributable.
+
+- **H1 — Slide-level leakage inflates accuracy.** The paper's image-level split lets cells from the same patient/slide appear in both training and test. We predict that switching to a slide-grouped split (StratifiedGroupKFold on the slide ID), with nothing else changed, will *lower* accuracy versus A0 — because the model can no longer lean on memorised slide-specific staining and must generalise to unseen patients. Tested by **A1** (vs A0).
+- **H2 — Stain normalisation recovers cross-slide generalisation.** We predict that adding YUV stain normalisation (+ histogram equalisation) on top of the leakage-free split will *partly recover* the accuracy lost in A1 — because it removes the colour/staining differences between slides that the model was using as a shortcut. Tested by **A2** (vs A1).
+
+| ID | Split | Preprocessing | Tests | Status |
+|---|---|---|---|---|
+| A0 | image-level (paper) | none | baseline reproduction | done |
+| A1 | slide-grouped | none | H1 (vs A0) | to run |
+| A2 | slide-grouped | YUV + hist-eq | H2 (vs A1) | to run |
+| A3 | image-level | YUV + hist-eq | control: is any gain specific to unseen slides? (vs A0) | to run |
+
+Results (mean ± SD over folds, recall and MCC for each experiment) will be filled in here after the A1–A3 runs.
